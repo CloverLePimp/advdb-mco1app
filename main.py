@@ -10,7 +10,48 @@ engine = create_engine("mysql+pymysql://root:12345@127.0.0.1:3306/sys")
 # Streamlit App - Page Config
 st.set_page_config(page_title='Steam OLAP Dashboard', page_icon=':bar_chart:', layout='wide')
 
+# Custom CSS for better styling
+st.markdown("""
+    <style>
+    .sidebar .sidebar-content {
+        background-color: #f8f9fa;
+        color: #333;
+    }
+    .css-1v3fvcr {
+        cursor: pointer;
+    }
+    .css-1v3fvcr:hover {
+        background-color: #e1e1e1;
+    }
+    .stButton>button {
+        background-color: #007bff;
+        color: #ffffff;
+        border-radius: 8px;
+        border: none;
+        padding: 10px;
+        font-size: 16px;
+    }
+    .stButton>button:hover {
+        background-color: #0056b3;
+    }
+    .report-title {
+        font-size: 2rem;
+        color: #007bff;
+        text-align: center;
+        margin-top: 1rem;
+        margin-bottom: 2rem;
+    }
+    .main-container {
+        background-color: #f0f2f6;
+        padding: 2rem;
+        border-radius: 8px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # Streamlit App
+st.markdown('<div class="main-container">', unsafe_allow_html=True)
+
 st.title('📊 Steam OLAP Dashboard')
 
 # Sidebar for selecting different reports
@@ -21,7 +62,7 @@ report = st.sidebar.radio(
 )
 
 if report == "Roll-Up: Total Player Count by Genre":
-    st.header('Roll-Up: Total Player Count by Genre')
+    st.markdown('<h2 class="report-title">Roll-Up: Total Player Count by Genre</h2>', unsafe_allow_html=True)
     rollup_query = """
         SELECT 
             ai.Genres, 
@@ -50,7 +91,7 @@ if report == "Roll-Up: Total Player Count by Genre":
     st.plotly_chart(fig, use_container_width=True)
 
 elif report == "Drill-Down: Average Playtime by Year and Genre":
-    st.header('Drill-Down: Average Playtime by Year and Genre')
+    st.markdown('<h2 class="report-title">Drill-Down: Average Playtime by Year and Genre</h2>', unsafe_allow_html=True)
     genres = ['Action', 'Adventure', 'RPG', 'Simulation', 'Strategy', 'Sports']
     drilldown_data = []
     for genre in genres:
@@ -96,41 +137,39 @@ elif report == "Drill-Down: Average Playtime by Year and Genre":
     st.plotly_chart(fig, use_container_width=True)
 
 elif report == "Dice: Games Released by Date and Genre":
-    st.header('Dice: Games Released by Date and Genre')
-    # Sidebar filters for start date, end date, and genre selection
+    st.markdown('<h2 class="report-title">Dice: Number of Games per Genre Given Minimum User Score</h2>', unsafe_allow_html=True)
+    # Sidebar filters for start date, end date, and user score selection
     start_year, end_year = st.sidebar.slider('Select Release Year Range', min_value=2000, max_value=2025, value=(2010, 2025))
-    genres_list = ['All', 'Action', 'Adventure', 'RPG', 'Simulation', 'Strategy', 'Sports']
-    selected_genre = st.sidebar.selectbox('Select Genre', genres_list)
+    min_score, max_score = st.sidebar.slider('Select User Score Range', min_value=0, max_value=100, value=(0, 100))
 
     # Construct SQL query with user input
-    genre_filter = f"AND ai.Genres LIKE '%%{selected_genre}%%'" if selected_genre != 'All' else ""
     dice_query = f"""
         SELECT 
-            ai.Name, 
-            ai.release_date, 
-            a.peak_ccu, 
-            ai.Genres
+            ai.Genres, 
+            COUNT(*) AS num_games
         FROM 
             app a
         JOIN 
             app_info ai ON a.info_id = ai.info_id
         WHERE 
-            YEAR(STR_TO_DATE(ai.release_date, '%%b %%d, %%Y')) BETWEEN {start_year} AND {end_year} 
-            {genre_filter}
-        ORDER BY 
-            a.peak_ccu DESC
-        LIMIT 50;
+            YEAR(STR_TO_DATE(ai.release_date, '%%b %%d, %%Y')) BETWEEN {start_year} AND {end_year}
+            AND a.user_score BETWEEN {min_score} AND {max_score}
+        GROUP BY 
+            ai.Genres;
     """
 
-    if st.button('Query Top 50 Games'):
-        dice_df = pd.read_sql(dice_query, con=engine)
-        dice_df['Genres'] = dice_df['Genres'].str.split(',')
-        dice_df = dice_df.explode('Genres')
-        dice_df = dice_df.drop_duplicates(subset=['Name', 'release_date', 'peak_ccu'])
-        st.dataframe(dice_df, use_container_width=True)
+    dice_df = pd.read_sql(dice_query, con=engine)
+    dice_df['Genres'] = dice_df['Genres'].str.split(',')
+    dice_df = dice_df.explode('Genres')
+    dice_df = dice_df.groupby('Genres', as_index=False).sum()
+
+    # Create the bar plot with genres as categories and number of games as values
+    fig = px.bar(dice_df, x='Genres', y='num_games', color='Genres', title='Number of Games per Genre Given Minimum User Score', labels={'num_games': 'Number of Games', 'Genres': 'Genre'})
+    fig.update_layout(title_font_size=24, title_x=0.5, xaxis_title='Genre', yaxis_title='Number of Games', colorway=px.colors.qualitative.Set2)
+    st.plotly_chart(fig, use_container_width=True)
 
 elif report == "Slice: High-Performing Games by Price":
-    st.header('Slice: High-Performing Games by Price')
+    st.markdown('<h2 class="report-title">Slice: High-Performing Games by Price</h2>', unsafe_allow_html=True)
     # Slider for selecting price range
     price_range = st.sidebar.slider('Select Price Range', min_value=0, max_value=200, value=(0, 50))
 
@@ -161,7 +200,7 @@ elif report == "Slice: High-Performing Games by Price":
     st.plotly_chart(fig, use_container_width=True)
 
 elif report == "Pivot: Average Playtime by Genre":
-    st.header('Pivot: Average Playtime by Genre')
+    st.markdown('<h2 class="report-title">Pivot: Average Playtime by Genre</h2>', unsafe_allow_html=True)
     pivot_query = """
         SELECT 
             ai.Genres, 
@@ -184,3 +223,5 @@ elif report == "Pivot: Average Playtime by Genre":
 
 # Close the database connection
 engine.dispose()
+
+st.markdown('</div>', unsafe_allow_html=True)
