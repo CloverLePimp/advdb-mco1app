@@ -107,6 +107,7 @@ elif report == "Drill-Down: Average Playtime by Year and Genre":
             WHERE 
                 ai.Genres LIKE '%%{genre}%%'
                 AND a.average_playtime_twoweeks > 0
+                AND a.average_playtime_forever > 0
             GROUP BY 
                 release_year
             ORDER BY 
@@ -210,6 +211,9 @@ elif report == "Pivot: Average Playtime by Genre":
             app a
         JOIN 
             app_info ai ON a.info_id = ai.info_id
+        WHERE 
+            a.average_playtime_forever > 0
+            AND a.average_playtime_twoweeks > 0
         GROUP BY 
             ai.Genres;
     """
@@ -217,9 +221,14 @@ elif report == "Pivot: Average Playtime by Genre":
     pivot_df['Genres'] = pivot_df['Genres'].str.split(',')
     pivot_df = pivot_df.explode('Genres')
     pivot_agg_df = pivot_df.groupby('Genres', as_index=False).mean()
-    fig = px.line(pivot_agg_df, x='Genres', y=['avg_playtime_forever', 'avg_playtime_recent'], title='Average Playtime by Genre', markers=True)
-    fig.update_layout(title_font_size=24, title_x=0.5, xaxis_title='Genre', yaxis_title='Average Playtime (Hours)', colorway=px.colors.qualitative.Set2)
-    st.plotly_chart(fig, use_container_width=True)
+
+    # Create a horizontal bar plot similar to the provided example
+    fig = px.bar(pivot_agg_df, y='Genres', x=['avg_playtime_forever', 'avg_playtime_recent'], title='Average Playtime by Genre', barmode='overlay', orientation='h', labels={'value': 'Average Playtime (Hours)', 'Genres': 'Genre'})
+    fig.update_traces(marker=dict(line=dict(width=1)), width=0.8)
+    fig.update_traces(marker_color=['#B0B0B0'], selector=dict(name='avg_playtime_forever'))
+    fig.update_traces(marker_color=['#404040'], selector=dict(name='avg_playtime_recent'))
+    fig.update_layout(title_font_size=24, title_x=0.5, yaxis_title='Genre', xaxis_title='Average Playtime (Hours)', plot_bgcolor='#f0f2f6', colorway=['#B0B0B0', '#404040'], height=700, width=1000)
+    st.plotly_chart(fig, use_container_width=False)
 
 # Close the database connection
 engine.dispose()
