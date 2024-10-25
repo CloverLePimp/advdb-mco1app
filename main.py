@@ -141,31 +141,34 @@ elif report == "Dice: Games Released by Date and Genre":
     st.markdown('<h2 class="report-title">Dice: Number of Games per Genre Given Minimum User Score</h2>', unsafe_allow_html=True)
     # Sidebar filters for start date, end date, and user score selection
     start_year, end_year = st.sidebar.slider('Select Release Year Range', min_value=2000, max_value=2025, value=(2010, 2025))
-    min_score, max_score = st.sidebar.slider('Select User Score Range', min_value=0, max_value=100, value=(0, 100))
+    min_score, max_score = st.sidebar.slider('Select User Score Range', min_value=0, max_value=100, value=(1, 100))
 
     # Construct SQL query with user input
     dice_query = f"""
+        WITH RECURSIVE NumberSeries AS (
+            SELECT 1 AS num
+            UNION ALL
+            SELECT num + 1
+            FROM NumberSeries
+            WHERE num <= 19 
+        )
         SELECT 
-            ai.Genres, 
-            COUNT(*) AS num_games
-        FROM 
-            app a
-        JOIN 
-            app_info ai ON a.info_id = ai.info_id
-        WHERE 
-            YEAR(STR_TO_DATE(ai.release_date, '%%b %%d, %%Y')) BETWEEN {start_year} AND {end_year}
-            AND a.user_score BETWEEN {min_score} AND {max_score}
-        GROUP BY 
-            ai.Genres;
+            SUBSTRING_INDEX(SUBSTRING_INDEX(ai.Genres, ',', NumberSeries.num), ',', -1) AS genre, 
+            COUNT(*) AS count
+        FROM app_info ai
+        JOIN app a ON a.info_id = ai.info_id
+        JOIN NumberSeries ON NumberSeries.num <= (LENGTH(ai.Genres) - LENGTH(REPLACE(ai.Genres, ',', '')) + 1)
+        WHERE a.user_score BETWEEN {min_score} AND {max_score}
+          AND YEAR(STR_TO_DATE(ai.release_date, '%%b %%d, %%Y')) BETWEEN {start_year} AND {end_year}
+          AND SUBSTRING_INDEX(SUBSTRING_INDEX(ai.Genres, ',', NumberSeries.num), ',', -1) IS NOT NULL
+        GROUP BY genre
+        ORDER BY count DESC;
     """
 
     dice_df = pd.read_sql(dice_query, con=engine)
-    dice_df['Genres'] = dice_df['Genres'].str.split(',')
-    dice_df = dice_df.explode('Genres')
-    dice_df = dice_df.groupby('Genres', as_index=False).sum()
 
     # Create the bar plot with genres as categories and number of games as values
-    fig = px.bar(dice_df, x='Genres', y='num_games', color='Genres', title='Number of Games per Genre Given Minimum User Score', labels={'num_games': 'Number of Games', 'Genres': 'Genre'})
+    fig = px.bar(dice_df, x='genre', y='count', color='genre', title='Number of Games per Genre Given Minimum User Score', labels={'count': 'Number of Games', 'genre': 'Genre'})
     fig.update_layout(title_font_size=24, title_x=0.5, xaxis_title='Genre', yaxis_title='Number of Games', colorway=px.colors.qualitative.Set2)
     st.plotly_chart(fig, use_container_width=True)
 
