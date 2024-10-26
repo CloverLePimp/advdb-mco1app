@@ -58,7 +58,7 @@ st.title('📊 Steam OLAP Dashboard')
 st.sidebar.header('Filter Reports')
 report = st.sidebar.radio(
     "Select a Report:",
-    ("Roll-Up: Total Player Count by Genre", "Drill-Down: Average Playtime by Year and Genre", "Dice: Games Released by Date and Genre", "Slice: High-Performing Games by Price", "Pivot: Average Playtime by Genre")
+    ("Roll-Up: Total Player Count by Genre", "Drill-Down: Average Playtime by Year and Genre", "Dice: Games Released by Date and Genre", "Slice: High-Performing Games by Price", "Slice/Rollup: Playtime all time vs current by Genre")
 )
 
 if report == "Roll-Up: Total Player Count by Genre":
@@ -81,8 +81,8 @@ if report == "Roll-Up: Total Player Count by Genre":
     # Aggregate small genres into 'Others'
     total_peak_users_sum = rollup_agg_df['total_peak_users'].sum()
     rollup_agg_df['percentage'] = (rollup_agg_df['total_peak_users'] / total_peak_users_sum) * 100
-    others_df = rollup_agg_df[rollup_agg_df['percentage'] < 5].copy()
-    rollup_agg_df = rollup_agg_df[rollup_agg_df['percentage'] >= 5]
+    others_df = rollup_agg_df[rollup_agg_df['percentage'] < 1].copy()
+    rollup_agg_df = rollup_agg_df[rollup_agg_df['percentage'] >= 1]
     if not others_df.empty:
         others_total = others_df['total_peak_users'].sum()
         rollup_agg_df = pd.concat([rollup_agg_df, pd.DataFrame({'Genres': ['Others'], 'total_peak_users': [others_total]})], ignore_index=True)
@@ -203,17 +203,15 @@ elif report == "Slice: High-Performing Games by Price":
     fig.update_layout(title_font_size=24, title_x=0.5, xaxis_title='Genre', yaxis_title='Average Review Count', colorway=px.colors.qualitative.Set1)
     st.plotly_chart(fig, use_container_width=True)
 
-elif report == "Pivot: Average Playtime by Genre":
-    st.markdown('<h2 class="report-title">Pivot: Average Playtime by Genre</h2>', unsafe_allow_html=True)
+elif report == "Slice/Rollup: Playtime all time vs current by Genre":
+    st.markdown('<h2 class="Slice/Rollup: Playtime all time vs current by Genre</h2>', unsafe_allow_html=True)
     pivot_query = """
         SELECT 
             ai.Genres, 
             AVG(a.average_playtime_forever) AS avg_playtime_forever, 
             AVG(a.average_playtime_twoweeks) AS avg_playtime_recent
         FROM 
-            app a
-        JOIN 
-            app_info ai ON a.info_id = ai.info_id
+            app a JOIN app_info ai ON a.info_id = ai.info_id
         WHERE 
             a.average_playtime_forever > 0
             AND a.average_playtime_twoweeks > 0
