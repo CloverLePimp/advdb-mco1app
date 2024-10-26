@@ -173,9 +173,11 @@ elif report == "Dice: Games Released by Date and Genre":
     st.plotly_chart(fig, use_container_width=True)
 
 elif report == "Slice: High-Performing Games by Price":
-    st.markdown('<h2 class="report-title">Slice: High-Performing Games by Price</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 class="report-title">Slice: High-Performing Games by Price and Age Requirement</h2>', unsafe_allow_html=True)
     # Slider for selecting price range
     price_range = st.sidebar.slider('Select Price Range', min_value=0, max_value=200, value=(0, 50))
+
+    required_age = st.sidebar.selectbox('Select Required Age', ['0+', '10+', '12+', '13+', '16+', '17+', '18+'])
 
     slice_query = f"""
         SELECT 
@@ -186,8 +188,10 @@ elif report == "Slice: High-Performing Games by Price":
             app a
         JOIN 
             app_info ai ON a.info_id = ai.info_id
+        JOIN 
+            app_specs aps ON a.specs_id = aps.specs_id
         WHERE 
-            ai.Price BETWEEN {price_range[0]} AND {price_range[1]}
+            ai.Price BETWEEN {price_range[0]} AND {price_range[1]} AND aps.required_age = '{required_age}'
             AND a.positive_reviews > 0
             AND a.negative_reviews > 0
         GROUP BY 
@@ -199,7 +203,7 @@ elif report == "Slice: High-Performing Games by Price":
     slice_df['Genres'] = slice_df['Genres'].str.split(',')
     slice_df = slice_df.explode('Genres')
     slice_df = slice_df.drop_duplicates(subset=['Genres'])
-    fig = px.bar(slice_df, x='Genres', y=['avg_positive_reviews', 'avg_negative_reviews'], barmode='group', title='Average Positive and Negative Reviews by Genre', labels={'value': 'Average Count', 'Genres': 'Genre'})
+    fig = px.bar(slice_df, x='Genres', y=['avg_positive_reviews', 'avg_negative_reviews'], barmode='group', title='Average Positive and Negative Reviews by Genre for High-Performing Games (Filtered by Price and Age Requirement)', labels={'value': 'Average Count', 'Genres': 'Genre'})
     fig.update_layout(title_font_size=24, title_x=0.5, xaxis_title='Genre', yaxis_title='Average Review Count', colorway=px.colors.qualitative.Set1)
     st.plotly_chart(fig, use_container_width=True)
 
